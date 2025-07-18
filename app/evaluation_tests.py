@@ -4,32 +4,37 @@ try:
     from .evaluation import Params, evaluation_function
 except ImportError:
     from evaluation import Params, evaluation_function
+from evaluation_test_cases import test_cases
 
 
 class TestEvaluationFunction(unittest.TestCase):
     """
     TestCase Class used to test the algorithm.
-    ---
-    Tests are used here to check that the algorithm written
-    is working as it should.
-
-    It's best practise to write these tests first to get a
-    kind of 'specification' for how your algorithm should
-    work, and you should run these tests before committing
-    your code to AWS.
-
-    Read the docs on how to use unittest here:
-    https://docs.python.org/3/library/unittest.html
-
-    Use evaluation_function() to check your algorithm works
-    as it should.
     """
 
-    def test_returns_is_correct_true(self):
-        response, answer, params = None, None, Params()
-        result = evaluation_function(response, answer, params)
+    def test_multiple_cases(self):
+        passed = 0
+        failed = 0
 
-        self.assertEqual(result.get("is_correct"), True)
+        for i, (response, answer, params, expected) in enumerate(test_cases, 1):
+            with self.subTest(test_case=i):
+                result = evaluation_function(response, answer, params)
+                is_correct = result.get("is_correct")
+
+                try:
+                    self.assertEqual(is_correct, expected)
+                    print(f"Test {i} Passed")
+                    passed += 1
+                except AssertionError:
+                    print(f"Test {i} Failed: expected {expected}, got {is_correct}")
+                    failed += 1
+
+                    # mismatch_info があれば表示
+                    mismatch_info = result.get("mismatch_info")
+                    if mismatch_info:
+                        print(f"Mismatch Info (Test {i}):\n{mismatch_info}")
+
+        print(f"\n--- Summary ---\nPassed: {passed}, Failed: {failed}, Total: {passed + failed}")
 
 
 if __name__ == "__main__":

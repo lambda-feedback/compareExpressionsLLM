@@ -1,0 +1,26 @@
+from evaluation import Params
+# [response, answer, params, expected]
+test_cases = [
+            ["2+2", "4", Params(), True],
+            ["sin(x)**2 + cos(x)**2", "1", Params(), True],
+            ["x+y", "y+x", Params(), True],
+            ["x*y", "x+y", Params(), False],
+            ["x**2 + 2*x + 1", "(x+1)**2", Params(), True],
+            ["x**2 - 1", "(x-1)*(x+1)", Params(), True],
+            ["x^5-1", "(x-1)*(x**4+x**3+x**2+x+1)", Params(), True],
+            ["sin(x) + cos(x)", "cos(x) + sin(x)", Params(), True],
+            ["sin(x) * cos(x)", "sin(x) + cos(x)", Params(), False],
+            ["exp(x) * exp(y)", "exp(x+y)", Params(), True],
+            ["log(x*y)", "log(x) + log(y)", Params(), False],
+            ["x**3 + x**2", "x**2 * (x + 1)", Params(), True],
+            ["", "", Params(), True],       
+            ["", "x", Params(), False],
+            ["x+1=0", "-2x-2=0", Params(), True],
+            ["dy/dx", "diff(y, x)", Params(), True],
+            ["(x+y)/x", "1 + y/x", Params(), True],
+            ["∂y/∂x", "diff(y, x)", Params(), True],
+            ["∫f(x)dx", "int(f(x), x)", Params(), True],
+            ["∂^2y/∂x^2", "diff(diff(y, x), x)", Params(), True],
+            ["dy/dx + 1", "diff(y, x) + 1", Params(), True],
+            ["∂y/∂x + 1", "diff(y, x) + 1", Params(), True],
+            ]
