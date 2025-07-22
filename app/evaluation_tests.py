@@ -4,7 +4,7 @@ try:
     from .evaluation import Params, evaluation_function
 except ImportError:
     from evaluation import Params, evaluation_function
-from evaluation_test_cases import test_cases
+from evaluation_test_cases import test_cases, test_cases2,test_cases3
 
 
 class TestEvaluationFunction(unittest.TestCase):
@@ -15,8 +15,8 @@ class TestEvaluationFunction(unittest.TestCase):
     def test_multiple_cases(self):
         passed = 0
         failed = 0
-
-        for i, (response, answer, params, expected) in enumerate(test_cases, 1):
+        case = [test_cases, test_cases2, test_cases3]
+        for i, (response, answer, params, expected) in enumerate(case[2], 1): #change here test_cases <-> test_cases2
             with self.subTest(test_case=i):
                 result = evaluation_function(response, answer, params)
                 is_correct = result.get("is_correct")
@@ -26,13 +26,12 @@ class TestEvaluationFunction(unittest.TestCase):
                     print(f"Test {i} Passed")
                     passed += 1
                 except AssertionError:
-                    print(f"Test {i} Failed: expected {expected}, got {is_correct}")
+                    print(f"Test {i} Failed:")
+                    print(f"  Response: {response}")
+                    print(f"  Answer  : {answer}")
+                    print(f"  Params  : {params}")
+                    print(f"  Expected: {expected}, Got: {is_correct}")
                     failed += 1
-
-                    # mismatch_info があれば表示
-                    mismatch_info = result.get("mismatch_info")
-                    if mismatch_info:
-                        print(f"Mismatch Info (Test {i}):\n{mismatch_info}")
 
         print(f"\n--- Summary ---\nPassed: {passed}, Failed: {failed}, Total: {passed + failed}")
 
