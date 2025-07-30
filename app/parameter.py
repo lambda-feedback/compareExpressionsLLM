@@ -1,5 +1,6 @@
 from sympy import Symbol, Function
 import re
+from typing import Any, TypedDict
 
 # default_params = {
 #     "symbol_assumptions": {}
@@ -11,6 +12,8 @@ import re
 #     Return a copy of the default parameters.
 #     """
 #     return default_params.copy()
+class Params(TypedDict):
+    pass
 
 def extract_variable_names(*expressions: str) -> set:
     """

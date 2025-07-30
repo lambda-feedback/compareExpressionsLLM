@@ -1,5 +1,3 @@
-typing
 sympy
-re
 python-dotenv
 langchain-openai
