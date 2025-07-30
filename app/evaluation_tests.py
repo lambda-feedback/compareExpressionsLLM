@@ -1,7 +1,7 @@
 import unittest
 
 try:
-    from .evaluation import Params, evaluation_function
+    from evaluation import Params, evaluation_function
 except ImportError:
     from evaluation import Params, evaluation_function
 from evaluation_test_cases import test_cases, test_cases2
