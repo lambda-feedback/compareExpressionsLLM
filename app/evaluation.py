@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from typing import Any, TypedDict
+from typing import Any, TypedDict, Union
 from sympy import solve, Eq, simplify, Symbol, Function, integrate, diff
 from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 import re
@@ -11,7 +11,7 @@ from re_conversion import convert_diff_re, convert_integral_re, convert_other_re
 
 class Result(TypedDict):
     is_correct: bool
-    sympy_result: bool | None
+    sympy_result: Union[bool, None]
     llm_result: bool
     mismatch_info: str
 
@@ -144,7 +144,7 @@ def extract_symbols(expr: str) -> dict:
 
     return symbol_dict
 
-def is_equivalent_sympy(expr1, expr2, params) -> bool | None:
+def is_equivalent_sympy(expr1, expr2, params) -> Union[bool, None]:
     """
     Return True/False if comparable with SymPy,
     or None if an error occurs.
