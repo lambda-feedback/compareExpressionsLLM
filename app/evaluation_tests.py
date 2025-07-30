@@ -1,4 +1,8 @@
 import unittest
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 
 try:
     from evaluation import Params, evaluation_function
