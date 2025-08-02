@@ -2,11 +2,16 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from typing import Any, TypedDict, Union
-from sympy import solve, Eq, simplify, Symbol, Function, integrate, diff
+from sympy import solve, Eq, simplify, Expr, symbols, Symbol, Function, FunctionClass, Integral, Derivative, Matrix, Abs, sin, cos, tan, sqrt, log, exp
+from sympy.core.function import AppliedUndef
+from sympy.matrices import MatrixBase
+from sympy import Basic
 from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 import re
 from parameter import create_sympy_parsing_params, Params
 from re_conversion import convert_diff_re, convert_integral_re, convert_other_re
+from llm_conversion import convert_diff, convert_integral, convert_other
+from FMX2_symbols import Fluids
 
 
 class Result(TypedDict):
@@ -17,6 +22,21 @@ class Result(TypedDict):
 
 
 transformations = standard_transformations + (implicit_multiplication_application,)
+
+def strip_outer_parens(expr: str) -> str:
+    expr = expr.strip()
+    if not expr.startswith("(") or not expr.endswith(")"):
+        return expr
+
+    depth = 0
+    for i, char in enumerate(expr):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        if depth == 0 and i != len(expr) - 1:
+            return expr
+    return expr[1:-1].strip()
 
 
 def has_unbalanced_parentheses(expr: str) -> bool:
@@ -127,15 +147,15 @@ def replace_greek_symbols(expr: str) -> str:
 
 def extract_symbols(expr: str) -> dict:
 
-    high_order_pattern = r"\b(?:d|del)\*\*\d+[a-zA-Z_]\w*/(?:d|del)[a-zA-Z_]\w*\*\*\d+\b"
-    first_order_pattern = r"\b(?:d|del)[a-zA-Z_]\w*/(?:d|del)[a-zA-Z_]\w*\b"
+    # high_order_pattern = r"\b(?:d|del)\*\*\d+[a-zA-Z_]\w*/(?:d|del)[a-zA-Z_]\w*\*\*\d+\b"
+    # first_order_pattern = r"\b(?:d|del)[a-zA-Z_]\w*/(?:d|del)[a-zA-Z_]\w*\b"
     material_pattern = r"\bD_[a-zA-Z_]\w*_[a-zA-Z_]\w*\b"
 
-    intg_pattern = r"(?:o?intg)\((?:[^()]+|\((?:[^()]+|\([^()]*\))*\))*\)"
+    # intg_pattern = r"(?:o?intg)\((?:[^()]+|\((?:[^()]+|\([^()]*\))*\))*\)"
 
-    nabla_pattern = r"(?:\bgrad\b|\bdivg\b|\brot\b|\bdot\b|\bcross\b|\bvec\b|\bhat\b)"
+    # nabla_pattern = r"(?:\bgrad\b|\bdivg\b|\brot\b|\bdot\b|\bcross\b|\bvec\b|\bhat\b)"
 
-    combined_pattern = f"{high_order_pattern}|{first_order_pattern}|{material_pattern}|{intg_pattern}|{nabla_pattern}"
+    combined_pattern = f"{material_pattern}"
 
     matches = re.findall(combined_pattern, expr)
 
@@ -147,73 +167,127 @@ def extract_symbols(expr: str) -> dict:
 def is_equivalent_sympy(expr1, expr2, params) -> Union[bool, None]:
     """
     Return True/False if comparable with SymPy,
-    or None if an error occurs.
+    or False if an error occurs.
     """
-    if not expr1.strip() and not expr2.strip():
-        return True
-    if not expr1.strip() or not expr2.strip():
-        return False
+
+    if isinstance(expr1, str) and isinstance(expr2, str):
+        if not expr1.strip() and not expr2.strip():
+            return True
+        if not expr1.strip() or not expr2.strip():
+            return False
 
     try:
-        parsing_params = create_sympy_parsing_params(params, expr1, expr2)
+        # Always convert to string before parsing assumptions
+        parsing_params = create_sympy_parsing_params(params, str(expr1), str(expr2))
         raw_dict = parsing_params["symbol_dict"]
-        transformations = parsing_params.get("extra_transformations", standard_transformations + (implicit_multiplication_application,))
+        transformations = parsing_params.get(
+            "extra_transformations",
+            standard_transformations + (implicit_multiplication_application,)
+        )
 
-        symbols1 = extract_symbols(expr1)
-        symbols2 = extract_symbols(expr2)
+        # Optional: Extract symbols from string inputs
+        # symbols1 = extract_symbols(expr1) if isinstance(expr1, str) else expr1
+        # symbols2 = extract_symbols(expr2) if isinstance(expr2, str) else expr2
 
-        local_dict = {
-            **symbols1,
-            **symbols2,
+        # Optional fluid context
+        fd = Fluids()
+        fd_dict = vars(fd)
+        valid_types = (Basic, MatrixBase)
+        fd_func_dict = {
+            k.replace('_func', ''): v
+            for k, v in fd_dict.items()
+            if k.endswith('_func') and isinstance(v, FunctionClass)
         }
-        local_dict["intg"] = Function("intg")
-        local_dict["ointg"] = Function("ointg")
-        local_dict["grad"] = Function("grad")
-        local_dict["divg"] = Function("divg")
-        local_dict["rot"] = Function("rot")
-        local_dict["dot"] = Function("dot")
-        local_dict["cross"] = Function("cross")
-        local_dict["vec"] = Function("vec")
-        local_dict["hat"] = Function("hat")
 
-        for name, attrs in raw_dict.items():
-            if name == "integrate":
-                local_dict[name] = Function(name)
-            elif name not in local_dict:
-                local_dict[name] = Symbol(name, **attrs) if isinstance(attrs, dict) else attrs
+        fd_filtered = {
+            k: v for k, v in fd_dict.items()
+            if isinstance(v, valid_types)
+            and not k.endswith('_func')
+            and not isinstance(v, AppliedUndef)
+        }
 
-        if "=" in expr1 and "=" in expr2:
-            lhs1, rhs1 = expr1.split("=")
-            lhs2, rhs2 = expr2.split("=")
-            lhs1_parsed = parse_expr(lhs1, transformations=transformations, local_dict=local_dict)
-            rhs1_parsed = parse_expr(rhs1, transformations=transformations, local_dict=local_dict)
-            lhs2_parsed = parse_expr(lhs2, transformations=transformations, local_dict=local_dict)
-            rhs2_parsed = parse_expr(rhs2, transformations=transformations, local_dict=local_dict)
+        # Build local_dict for parser
+        local_dict = {
+            "Gradient": fd.Gradient,
+            "Divergence": fd.Divergence,
+            "Curl": fd.Curl,
+            "smart_derivative": fd.smart_derivative,
+            **fd_func_dict,
+            **fd_filtered,
+            # **symbols1,
+            # **symbols2,
+        }
+
+        for name, sym in raw_dict.items():
+            if not isinstance(sym, dict):
+                if params: 
+                    local_dict[name] = sym
+                elif name not in local_dict:
+                    local_dict[name] = sym
+
+        def ensure_expr(expr):
+            if isinstance(expr, str):
+                func_args_map = {
+                    "u": (fd.x, fd.y, fd.z, fd.t),
+                    "v": (fd.x, fd.y, fd.z, fd.t),
+                    "w": (fd.x, fd.y, fd.z, fd.t),
+                    "T": (fd.x, fd.y, fd.z, fd.t),
+                    "rho": (fd.x, fd.y, fd.z, fd.t),
+                    "p": (fd.x, fd.y, fd.z, fd.t),
+                    "u_r": (fd.r, fd.theta, fd.z, fd.t),
+                    "u_theta": (fd.r, fd.theta, fd.z, fd.t),
+                    "u_z": (fd.r, fd.theta, fd.z, fd.t),
+                }
+
+                applied_funcs = {}
+                for name, func in local_dict.items():
+                    if isinstance(func, FunctionClass) and name in func_args_map:
+                        args = func_args_map[name]
+                        applied_funcs[name] = func(*args)
+
+                # 置換：既に呼び出されていない関数だけ変換
+                for name, applied in applied_funcs.items():
+                    pattern = rf'(?<!\w){name}(?!\w|\s*\()'
+                    expr = re.sub(pattern, f'({str(applied)})', expr)
+
+                return parse_expr(expr, transformations=transformations, local_dict=local_dict)
+            else:
+                return expr
+
+        # Handle equations
+        if "=" in str(expr1) and "=" in str(expr2):
+            lhs1, rhs1 = str(expr1).split("=")
+            lhs2, rhs2 = str(expr2).split("=")
+
+            lhs1_parsed = ensure_expr(lhs1)
+            rhs1_parsed = ensure_expr(rhs1)
+            lhs2_parsed = ensure_expr(lhs2)
+            rhs2_parsed = ensure_expr(rhs2)
+
             eq1 = Eq(lhs1_parsed - rhs1_parsed, 0)
             eq2 = Eq(lhs2_parsed - rhs2_parsed, 0)
 
             all_symbols = eq1.free_symbols.union(eq2.free_symbols)
-
             sol1 = solve(eq1, list(all_symbols))
             sol2 = solve(eq2, list(all_symbols))
 
             return set(sol1) == set(sol2)
 
-        # Parse expressions
-        expr1_parsed = parse_expr(expr1, transformations=transformations, local_dict=local_dict)
-        expr2_parsed = parse_expr(expr2, transformations=transformations, local_dict=local_dict)
+        # Handle expression comparison
+        expr1_parsed = ensure_expr(expr1)
+        expr2_parsed = ensure_expr(expr2)
 
-        print("expr1_parsed:", expr1_parsed)
-        print("expr2_parsed:", expr2_parsed)
+        if isinstance(expr1_parsed, MatrixBase) and isinstance(expr2_parsed, MatrixBase):
+            return simplify(expr1_parsed - expr2_parsed) == Matrix.zeros(*expr1_parsed.shape)
+        else:
+            return simplify(expr1_parsed - expr2_parsed) == 0
 
-        return simplify(expr1_parsed - expr2_parsed) == 0
 
     except Exception as e:
         print(f"SymPy error: {e}")
         return False
 
 def evaluation_function(response, answer, params):
-
     if has_unbalanced_parentheses(response) or has_unbalanced_parentheses(answer):
         return {
             "is_correct": False,
@@ -247,21 +321,22 @@ def evaluation_function(response, answer, params):
 
     if needs_conversion:
         if response_has_other:
-            response = convert_other_re(response, params) 
+            response = convert_other(response, params).content.strip() 
         if response_has_diff:
-            response = convert_diff_re(response, params) 
+            response = convert_diff(response, params).content.strip() 
         if response_has_integral:
-            response = convert_integral_re(response, params) 
+            response = convert_integral(response, params).content.strip() 
         
         if answer_has_other:
-            answer = convert_other_re(answer, params) 
+            answer = convert_other(answer, params).content.strip() 
         if answer_has_diff:
-            answer = convert_diff_re(answer, params) 
+            answer = convert_diff(answer, params).content.strip() 
         if answer_has_integral:
-            answer = convert_integral_re(answer, params) 
+            answer = convert_integral(answer, params).content.strip() 
 
-        print(response, answer)
-
+        print(response, answer) #parentheses not removed but will be removed later
+    response = strip_outer_parens(response)
+    answer = strip_outer_parens(answer)
     result = is_equivalent_sympy(response, answer, params)
 
     return {"is_correct": result}

@@ -20,8 +20,9 @@ def extract_variable_names(*expressions: str) -> set:
     Extract variable names from expressions, excluding reserved words.
     """
     pattern = re.compile(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b')
-    reserved = {"sin", "cos", "tan", "sqrt", "abs", "exp", "log",
-                "I", "E", "pi", "beta", "gamma", "zeta", "diff", "int"}
+    reserved = {"Abs", "sin", "cos", "tan", "sqrt", "abs", "exp", "log",
+                "I", "E", "pi", "beta", "gamma", "zeta", "diff", "int", "Derivative", "Integral", "Gradient",
+                "dot", "Curl", "Divergence"}
     return [
         m for expr in expressions for m in pattern.findall(expr)
         if m not in reserved and not m.isnumeric()
@@ -44,14 +45,9 @@ def create_sympy_parsing_params(params, *expressions):
     # 3️⃣ for each variable, register it with appropriate attributes
     for v in unknown_vars:
         if v in assumptions:
-            # if in assumptions: use specified attributes
-            try:
-                sym = Symbol(v, **assumptions[v])
-                symbol_dict[v] = sym.assumptions0
-            except Exception as e:
-                raise ValueError(f"Invalid attributes for symbol '{v}': {e}")
+            symbol_dict[v] = Symbol(v, **assumptions[v])  # ← attributes dict を直接保存
         else:
-            sym = Symbol(v, complex=True)
-            symbol_dict[v] = sym.assumptions0
+            symbol_dict[v] = {"complex": True}  # デフォルトでは complex 扱い
 
     return {"symbol_dict": symbol_dict}
+

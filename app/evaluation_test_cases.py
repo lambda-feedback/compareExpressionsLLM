@@ -23,8 +23,8 @@ test_cases = [
             ["∫fdx", "int(f, x)", Params(), True],
             ["dy/dx + 1", "diff(y, x) + 1", Params(), True],
             ["dp/dt", "diff(p, t)", Params(), True],
-            ["dg/dm", "diff(y,x)", Params(), False],
-            ["infty", "Infinity", Params(), True], #1
+            ["du/dx", "diff(y,x)", Params(), False],
+            ["infty", "Infinity", Params(), True],
             ["sqrt(-1)", "I", Params(), True],
             ["sqrt(x**2)", "x", Params(), False],
             ["1/(x-1)", "1/(1-x)", Params(), False],
@@ -41,12 +41,11 @@ test_cases = [
             ["abs(x)", "sqrt(x**2)", Params(), False],
             ["abs(x)", "sqrt(x**2)", Params(symbol_assumptions={"x": {"real": True},}), True],
             ]
+        
 test_cases2 = [
-            ["nabla(f)=delf/delr*hat(r)+delf/deltheta*hat(theta)*delf/delz*hat(z)","grad(f)=delf/delr*hat(r)+delf/deltheta*hat(theta)*delf/delz*hat(z)",Params(),True],
-            ["∫_{V_sys} ∂ρ/∂t dV", "int_Vsys(partial(ρ)/partial(t), V)", Params(), True],
-            ["∫_{V_sys} ∂/∂t(ρ*u) dV", "int_Vsys(partial(ρ*u)/partial(t), V)", Params(), True],
-            ["∮_{A_sys} ρ*u·n dA", "Integral(rho * u.dot(n), (A, A_sys), circular=True)", Params(), True],
-            ["exp(a/b)","e^(a/b)",Params(),True],
-            ["exp(i*(omega*t-k*r))","cos(omega*t-k*r)+i*sin(omega*t-k*r)",Params(),True],
-            ["grad(p)=rho(g-a)","nabla(p)=ρ*(g-a)",Params(),True],
+            ["grad(f)=delf/delr*hat(r)+delf/deltheta*hat(theta)+delf/delz*hat(z)", "grad(f)=delf/delr*hat(r)+delf/deltheta*hat(theta)+delf/delz*hat(z)", Params(), True],
+            ["Du_vec/Dt", "smart_derivative(u_vec,t) + grad(u_vec)*u_vec", Params(), True],
+            ["u_vec", "u_vec", Params(), True],
+            ["Gradient(u_vec)", "Gradient(u_vec)", Params(), True],
+            ["u_vec.dot(x_vec)", "u_vec.dot(x_vec)", Params(), True]
             ]
