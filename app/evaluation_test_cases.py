@@ -36,16 +36,32 @@ test_cases = [
             ["diff(y,x)+", "diff(y,x)+0", Params(), False],
             ["d/dx(y", "diff(y, x)", Params(), False],
             ["rho", "ρ", Params(), True],
-            ["Dx/Dt=-div(u)", "Dx/Dt+div(u)=0", Params(), True],
-            ["(1/rho)*Drho/Dt=-div(u)", "(1/ρ)*Dρ/Dt+div(u)=0", Params(), True],
-            ["abs(x)", "sqrt(x**2)", Params(), False],
-            ["abs(x)", "sqrt(x**2)", Params(symbol_assumptions={"x": {"real": True},}), True],
+            ["Drho/Dt=-div(u_vec)", "Drho/Dt+div(u_vec)=0", Params(), True],
+            ["(1/rho)*Drho/Dt=-div(u_vec)", "(1/ρ)*Dρ/Dt+div(u_vec)=0", Params(), True],
+            ["grad(u_r)=delu_r/delr*hat(r)+delu_r/deltheta*hat(theta)+delu_r/delz*hat(z)", "grad(u_r)=delu_r/delr*hat(r)+delu_r/deltheta*hat(theta)+delu_r/delz*hat(z)", Params(), True],
+            ["Du_vec/Dt", "smart_derivative(u_vec,t) + dot(grad(u_vec),(u_vec))", Params(), True],
+            ["u_vec", "u_vec", Params(), True],
+            ["Gradient(u_vec)", "Gradient(u_vec)", Params(), True],
+            ["u_vec.dot(x_vec)", "u_vec.dot(x_vec)", Params(), True],
             ]
         
 test_cases2 = [
-            ["grad(f)=delf/delr*hat(r)+delf/deltheta*hat(theta)+delf/delz*hat(z)", "grad(f)=delf/delr*hat(r)+delf/deltheta*hat(theta)+delf/delz*hat(z)", Params(), True],
-            ["Du_vec/Dt", "smart_derivative(u_vec,t) + grad(u_vec)*u_vec", Params(), True],
-            ["u_vec", "u_vec", Params(), True],
-            ["Gradient(u_vec)", "Gradient(u_vec)", Params(), True],
-            ["u_vec.dot(x_vec)", "u_vec.dot(x_vec)", Params(), True]
+            ["abs(x)", "sqrt(x**2)", Params(), False],
+            ["abs(x)", "sqrt(x**2)", Params(symbol_assumptions={"x": {"real": True},}), True],
+            ["y - y(x)", "0", Params(), False], 
+            ["y - y(x)", "0", Params(function=["y(x)"]), True], 
+            ["diff(f*g, x)", "f*diff(g, x) + g*diff(f, x)", Params(function=["f(x)", "g(x)"]), True], 
+            ["3", "3", Params(domain="(0,3]"), True],
+            ["3", "3", Params(domain="(0,3)"), False],
+            # ["0=∫_{V_sys}(delrho/delt+div(rho*u_vec))dV",
+            # "0=Integral(smart_derivative(rho,t,1)+Divergence(rho*u_vec),V)",
+            # {}, True],
+
+            # ["∫_{V_sys}(∂rho/∂t+div(rho*u_vec))dV=0",
+            # "Integral(smart_derivative(rho,t,1)+Divergence(rho*u_vec),V)=0",
+            # {}, True],
+
+            # ["∫_{V_sys}(∂rho/∂t+div(rho*u_vec))dV=0",
+            # "Integral(smart_derivative(rho,t,1),V)=0",
+            # {}, False],
             ]

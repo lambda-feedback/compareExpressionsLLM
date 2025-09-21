@@ -18,26 +18,30 @@ When the following notations are found in the response, they must be replaced wi
 
 ---
 
-- [dy/dx, d/dx(y), diff(y,x)] -> smart_derivative(y,x)
+- [dy/dx, d/dx(y), diff(y,x)] -> smart_derivative(y,x,1)
 
-- [d^2y/dx^2, d**2y/dx**2, diff(y,x,x)] -> smart_derivative(y,x,x)
-- [d^3y/dx^3, d**3y/dx**3, diff(y,x,x,x)] -> smart_derivative(y,x,x,x)
-- [∂y/∂x, ∂/∂x(y), partial(y)/partial(x)] -> smart_derivative(y,x)
-- [∂**2y/dx**2, diff(y,x,x), partial**2(y)/partial(x)**2] -> smart_derivative(y,x,x)
-- [Dy/Dt, D/Dt(y)] -> (smart_derivative(y,t)+Gradient(y)*u_vec)
-Do NOT convert to (smart_derivative(y,t)+Gradient(y).dot(u_vec)).
-Do NOT convert to (smart_derivative(y,t)+Gradient(y)*u_vec).
+- [d^2y/dx^2, d**2y/dx**2, diff(y,x,x)] -> smart_derivative(y,x,2)
+- [d^3y/dx^3, d**3y/dx**3, diff(y,x,x,x)] -> smart_derivative(y,x,3)
+- [∂y/∂x, ∂/∂x(y), partial(y)/partial(x), dely/delx, del(y)/del(x)] -> smart_derivative(y,x,1)
+- [∂**2y/dx**2, diff(y,x,x), partial**2(y)/partial(x)**2] -> smart_derivative(y,x,2)
+- [Dy/Dt, D/Dt(y)] -> (smart_derivative(y,t,1)+smart_dot(Gradient(y),u_vec))
+Do NOT convert to (smart_derivative(y,t,1)+Gradient(y).dot(u_vec)).
+Do NOT convert to (smart_derivative(y,t,1)+Gradient(y)*u_vec).
+Never omit the second term, "+smart_dot(Gradient(y),u_vec)".
+Do NOT remove any surrounding terms like "+Divergence(...)" when replacing "Drho/Dt" or "D/Dt(...)".  
+If the expression is "Drho/Dt + Divergence(u_vec) = 0", the correct output is "(smart_derivative(rho,t,1)+smart_dot(Gradient(rho),u_vec))+Divergence(u_vec)=0".  
+Never omit "Divergence(u_vec)".
 ---
 Important:
 **Even if the notation is SymPy-compatible, it still must be replaced.**
 Variable names used in the notations above are "x" and "y", but they can be any variable names depending on the input, except for the differentiation operator characters given below. Variable names can be more than one letter, such as "rho" or "phi".
 **Input variable names must NEVER be changed. Keep the original variable names exactly as they appear.**
-Example: dp/dt or d/dt(p) must be converted to smart_derivative(p,t), not smart_derivative(y,x) or any other forms using any variables other than p and t.
+Example: dp/dt or d/dt(p) must be converted to smart_derivative(p,t,1), not smart_derivative(y,x,1) or any other forms using any variables other than p and t.
 Differentiation operator characters are: "d", "D", "del", "∂", and "partial". The "**{{real number}}" such as "**2" or "**3" is also a part of the differentiation operator characters and not part of variable names.
 **Variable names are always case-sensitive. If the variable is capitalized, it must be capitalized in the response.**
-For example, if dp/dt or d/dt(p) is given, it must be converted to smart_derivative(p,t), not smart_derivative(P,t) or any other forms.
+For example, if dp/dt or d/dt(p) is given, it must be converted to smart_derivative(p,t,1), not smart_derivative(P,t,1) or any other forms.
 The differentiation operators "d" and "D" are different; they are also case-sensitive.
-Example: if the input is "DT/Dt", you must convert this to "(smart_derivative(T,t)+Gradient(T)*u_vec)".
+Example: if the input is "DT/Dt", you must convert this to "(smart_derivative(T,t,1)+Gradient(T)*u_vec)".
 Do not remove or add any characters except as required by the replacement rules.
 
 All the notations in the same square brackets are equivalent.
@@ -123,9 +127,9 @@ When the following notations are found in the response, they must be replaced wi
 Example: div(u) should be converted into Divergence(u).
 - [∇×f, curl(f), rot(f), nablaxf, ∇xf] -> Curl(f)
 
-- [Infinity, infinity, ∞, oo, Inf, inf, Infty, infty] -> oo
-- [a·b, a⋅b, a.b, dot(a,b)] -> a.dot(b)
-Do NOT convert "a*b" to "a.dot(b)".
+- [Infinity, infinity, ∞, oo, Inf, Infty, infty] -> inf
+- [a·b, a⋅b, a.b, dot(a,b)] -> smart_dot(a,b)
+
 Example: "grad(u_vec)*u_vec" must be converted to "Gradient(u_vec)*u_vec" not "Gradient(u_vec).dot(u_vec)".
   *Note: a.b is only equivalent to a.dot(b) if a and b are variables, not constants like 0, 1, π, etc.*
   *Note: a and b are not commutative. Therefore, when for example "u_vec·x_vec" is input, you must convert it into "u_vec.dot(x_vec)".
