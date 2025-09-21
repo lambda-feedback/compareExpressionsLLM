@@ -2,7 +2,7 @@ from sympy import Symbol, Function
 import re
 from typing import Any, TypedDict
 from sympy import sympify
-from typing import Set
+from typing import Any, TypedDict, Set, Tuple, List, Dict
 
 class Params(TypedDict):
     pass
@@ -27,7 +27,7 @@ def extract_variable_names(*expressions: str) -> Set[str]:
                 names.add(m)
     return names
 
-def parse_function_spec(func_str: str) -> tuple[str, list[str]]:
+def parse_function_spec(func_str: str) -> Tuple[str, List[str]]:
     """
     "f(x,y)" → ("f", ["x", "y"])
     """
@@ -37,7 +37,7 @@ def parse_function_spec(func_str: str) -> tuple[str, list[str]]:
     func_name = match.group(1)
     args = [arg.strip() for arg in match.group(2).split(",") if arg.strip()]
     return func_name, args
-def apply_declared_functions(expr: str, func_params: list[str]) -> str:
+def apply_declared_functions(expr: str, func_params: List[str]) -> str:
     # {"y": ["x"], "f": ["t"], "g": ["x"]} を作る
     decl = {}
     for s in func_params:
@@ -55,7 +55,7 @@ def apply_declared_functions(expr: str, func_params: list[str]) -> str:
         expr = re.sub(rf"\b{name}\b(?!\s*\()", f"{name}({argstr})", expr)
     return expr
 
-def _parse_fn(sig: str) -> tuple[str, list[str]]:
+def _parse_fn(sig: str) -> Tuple[str, List[str]]:
     # "y(x,z)" -> ("y", ["x","z"])
     name, args = sig.split("(", 1)
     name = name.strip()
@@ -63,7 +63,7 @@ def _parse_fn(sig: str) -> tuple[str, list[str]]:
     argv = [a.strip() for a in args.split(",")] if args else []
     return name, argv
 
-def parse_domain(domain_str: str) -> dict:
+def parse_domain(domain_str: str) -> Dict:
     """
     Receive "(a,b]", "[a,b]", "(-2,2)", "(0, pi]", "(-oo, oo)" etc.
     Return {"left": sympy.Expr, "right": sympy.Expr, "left_open": bool, "right_open": bool}
@@ -101,11 +101,11 @@ def check_in_domain(value, domain: dict) -> bool:
     return True
 
 
-def create_sympy_parsing_params(params: dict, *expressions: str) -> dict:
-    symbol_dict: dict[str, Any] = {}
+def create_sympy_parsing_params(params: Dict, *expressions: str) -> Dict:
+    symbol_dict: Dict[str, Any] = {}
 
     # assumptions
-    assumptions: dict[str, dict] = params.get("symbol_assumptions", {}) or {}
+    assumptions: Dict[str, dict] = params.get("symbol_assumptions", {}) or {}
 
     # functions
     fn_list = params.get("function") or []
@@ -134,7 +134,7 @@ def create_sympy_parsing_params(params: dict, *expressions: str) -> dict:
         "domain": domain,
     }
 
-d = parse_domain("(0,3)")
-print(check_in_domain(0, d))  # False
-print(check_in_domain(3, d))  # False
-print(check_in_domain(2.9, d))  # True
+# d = parse_domain("(0,3)")
+# print(check_in_domain(0, d))  # False
+# print(check_in_domain(3, d))  # False
+# print(check_in_domain(2.9, d))  # True
