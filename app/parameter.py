@@ -2,11 +2,12 @@ from sympy import Symbol, Function
 import re
 from typing import Any, TypedDict
 from sympy import sympify
+from typing import Set
 
 class Params(TypedDict):
     pass
 
-def extract_variable_names(*expressions: str) -> set[str]:
+def extract_variable_names(*expressions: str) -> Set[str]:
     """
     Extract variable names from expressions, excluding reserved words.
     """
