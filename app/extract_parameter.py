@@ -30,6 +30,7 @@ def extract_parameter(question_txt: str) -> str:
     The conditions are mainly classified into the following two types:
     1) Conditions that define the properties of a constant (e.g., "x is a real number", "y is a complex number", "x > 0", etc.)
     2) Conditions that define the types of variables (e.g., "y is a function of x", "f is a matrix", "u is a vector", etc.)
+    3) Conditions that define the domain of variables (e.g., "x is in (0,1)", "y is larger than or equal to 2", etc.)
     These may be combined together (e.g., "y is a real-valued function of x", "A is a positive definite matrix", etc.)
     
     The output format is as follows:
@@ -55,13 +56,21 @@ def extract_parameter(question_txt: str) -> str:
     Example:
         "y is a function of x" → ["y(x)"]
         "f is a function of x and z" → ["f(x,z)"]
+    
+    For type 3) conditions, output in the format:
+        "domain"="(a, b)", "(a,b]", "[a, b)" or "[a,b]" depending on whether the endpoints are included or not.
+    Example:
+        "x is in (0,1)" → "(0,1)"
+        "y is larger than or equal to 2 and less than 5" → "[2,5)"
+        "z is between -1 and 1, inclusive" → "[-1,1]"
 
-    If both types are present, include both in the output dictionary.
+    If more than one type is present, include both/all in the output dictionary.
 
     Return the result strictly as a JSON-like Python dictionary with keys:
     {{
         "symbol_assumptions"={{...}},
-        "function"=[...]
+        "function"=[...],
+        "domain"="..."
     }}
 
     Do not include explanations, output only the dictionary.

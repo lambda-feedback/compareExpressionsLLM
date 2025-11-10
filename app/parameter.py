@@ -1,7 +1,7 @@
-from sympy import Symbol, Function
+from sympy import Symbol, Function, MatrixSymbol, IndexedBase
 import re
 from typing import Any, TypedDict
-from sympy import sympify
+from sympy import Eq, Ne, sympify
 from typing import Any, TypedDict, Set, Tuple, List, Dict
 
 class Params(TypedDict):
@@ -82,6 +82,9 @@ def parse_domain(domain_str: str) -> Dict:
     }
 
 def check_in_domain(value, domain: dict) -> bool:
+    """
+    Check if a value satisfies the given domain.
+    """
     left, right = domain["left"], domain["right"]
 
     if domain["left_open"]:
@@ -99,6 +102,26 @@ def check_in_domain(value, domain: dict) -> bool:
             return False
 
     return True
+
+
+def parse_constraint(expr: str):
+    """
+    Convert a constraint string like 'x > 0', 'a + b = 1', 'm != n' into a SymPy object.
+    """
+    expr = expr.strip()
+
+    # = を Eq に変換
+    if "=" in expr and "==" not in expr and "!=" not in expr:
+        left, right = expr.split("=", 1)
+        return Eq(sympify(left), sympify(right))
+
+    # != を Ne に変換
+    if "!=" in expr:
+        left, right = expr.split("!=", 1)
+        return Ne(sympify(left), sympify(right))
+
+    # >, <, >=, <= は sympify が処理可能
+    return sympify(expr)
 
 
 def create_sympy_parsing_params(params: Dict, *expressions: str) -> Dict:
@@ -124,17 +147,109 @@ def create_sympy_parsing_params(params: Dict, *expressions: str) -> Dict:
         if v not in symbol_dict:
             symbol_dict[v] = Symbol(v, **(attrs if isinstance(attrs, dict) else {}))
 
-    # --- NEW: domain サポート ---
-    domain = None
-    if "domain" in params:
-        domain = parse_domain(params["domain"])
+    # --- domains ---
+    domains: Dict[str, dict] = {}
+    if "domains" in params:
+        for var, dstr in params["domains"].items():
+            domains[var] = parse_domain(dstr)
+
+    # --- function properties ---
+    fn_properties: Dict[str, Dict[str, Any]] = {}
+    if "function_properties" in params:
+        for sig, props in params["function_properties"].items():
+            fn_name, args = _parse_fn(sig)
+            fn_properties[sig] = props
+
+    # --- object types ---
+    object_types: Dict[str, str] = {}
+    if "object_type" in params:
+        for var, otype in params["object_type"].items():
+            object_types[var] = otype
+            if otype == "vector":
+                symbol_dict[var] = IndexedBase(var)
+            elif otype == "matrix":
+                symbol_dict[var] = MatrixSymbol(var, 3, 3)
+            elif otype == "scalar":
+                symbol_dict[var] = Symbol(var)
+            elif otype == "tensor":
+                symbol_dict[var] = IndexedBase(var)
+
+    # --- NEW: constraints ---
+    constraints = []
+    if "constraints" in params:
+        for c in params["constraints"]:
+            try:
+                constraints.append(parse_constraint(c))
+            except Exception as e:
+                raise ValueError(f"Invalid constraint: {c}") from e
 
     return {
         "symbol_dict": symbol_dict,
-        "domain": domain,
+        "domains": domains,
+        "function_properties": fn_properties,
+        "object_types": object_types,
+        "constraints": constraints,
     }
 
-# d = parse_domain("(0,3)")
-# print(check_in_domain(0, d))  # False
-# print(check_in_domain(3, d))  # False
-# print(check_in_domain(2.9, d))  # True
+def validate_constraints(values: Dict[str, Any], parsed: Dict) -> Dict[str, Any]:
+    results = {"ok": True, "violations": []}
+
+    # --- ドメインチェック ---
+    for var, domain in parsed.get("domains", {}).items():
+        if var in values and isinstance(values[var], (int, float)):
+            val = values[var]
+            if not check_in_domain(val, domain):
+                results["ok"] = False
+                results["violations"].append(f"{var}={val} not in {domain}")
+
+    # --- 制約チェック ---
+    for cons in parsed.get("constraints", []):
+        try:
+            # list/tuple は無視して代入しない
+            safe_values = {k: v for k, v in values.items() if not isinstance(v, (list, tuple))}
+            expr = cons.subs(safe_values)
+
+            if isinstance(cons, Eq):
+                if not bool(expr):
+                    results["ok"] = False
+                    results["violations"].append(f"Constraint {cons} not satisfied with {safe_values}")
+            elif isinstance(cons, Ne):
+                if not bool(expr):
+                    results["ok"] = False
+                    results["violations"].append(f"Constraint {cons} not satisfied with {safe_values}")
+            else:
+                if not bool(expr):
+                    results["ok"] = False
+                    results["violations"].append(f"Constraint {cons} not satisfied with {safe_values}")
+        except Exception as e:
+            results["ok"] = False
+            results["violations"].append(f"Constraint check failed for {cons}: {e}")
+
+    # --- オブジェクト型チェック ---
+    for var, otype in parsed.get("object_types", {}).items():
+        if var in values:
+            val = values[var]
+            if otype == "vector" and not isinstance(val, (list, tuple)):
+                results["violations"].append(f"{var} should be a vector but got {val}")
+                results["ok"] = False
+            if otype == "matrix" and not (hasattr(val, "shape") or isinstance(val, list)):
+                results["violations"].append(f"{var} should be a matrix but got {val}")
+                results["ok"] = False
+
+    return results
+
+params = {
+    "symbol_assumptions": {"x": {"real": True}, "y": {"real": True}},
+    "domains": {"x": "(0,3)", "y": "[-1,1]"},
+    "constraints": ["x + y = 1", "x > 0"],
+    "object_type": {"u": "vector"}
+}
+
+parsed = create_sympy_parsing_params(params)
+
+# 検証
+print(validate_constraints({"x": 2, "y": -1, "u": [1,2,3]}, parsed))
+# -> {'ok': True, 'violations': []}
+
+print(validate_constraints({"x": -1, "y": 2, "u": 5}, parsed))
+# -> {'ok': False, 'violations': [...違反内容...]}

@@ -113,6 +113,36 @@ def convert_diff_re(expr: str, params) -> str:
         s
     )
 
+    # --- LaTeX forms ---
+
+    # d/dx y
+    s = re.sub(
+        r'\\frac\s*\{\s*d\s*\}\s*\{\s*d([A-Za-z_]\w*)\s*\}\s*([A-Za-z_]\w*)',
+        r'smart_derivative(\2,\1,1)',
+        s
+    )
+
+    # d^n y / dx^n
+    s = re.sub(
+        r'\\frac\s*\{\s*d\^(\d+)\s*([A-Za-z_]\w*)\s*\}\s*\{\s*d([A-Za-z_]\w*)\^\\?\1\s*\}',
+        r'smart_derivative(\2,\3,\1)',
+        s
+    )
+
+    # ∂y/∂x
+    s = re.sub(
+        r'\\frac\s*\{\s*\\partial\s*([A-Za-z_]\w*)\s*\}\s*\{\s*\\partial\s*([A-Za-z_]\w*)\s*\}',
+        r'smart_derivative(\1,\2,1)',
+        s
+    )
+
+    # ∂^n y / ∂x^n
+    s = re.sub(
+        r'\\frac\s*\{\s*\\partial\^(\d+)\s*([A-Za-z_]\w*)\s*\}\s*\{\s*\\partial\s*([A-Za-z_]\w*)\^\\?\1\s*\}',
+        r'smart_derivative(\2,\3,\1)',
+        s
+    )
+
     return s.replace(" ", "")
 
 def convert_integral_re(expr: str, params) -> str:
@@ -215,6 +245,49 @@ def convert_integral_re(expr: str, params) -> str:
         s
     )
 
+    # --- LaTeX forms ---
+
+    # 定積分 \int_a^b f(x) dx
+    s = re.sub(
+        r'\\int\s*_\s*(?:\{([^}]*)\}|([^\^ ]+))\s*\^\s*(?:\{([^}]*)\}|([^\s\\]+))\s*([A-Za-z0-9_+\-*/^()]+)\s*d([A-Za-z_]\w*)',
+        lambda m: f"Integral({m.group(5)},({m.group(6)},{m.group(1) or m.group(2)},{m.group(3) or m.group(4)}))",
+        s
+    )
+
+    # 不定積分 \int f dx
+    s = re.sub(
+        r'\\int\s*([A-Za-z0-9_+\-*/^()]+)\s*d([A-Za-z_]\w*)',
+        r'Integral(\1,\2)',
+        s
+    )
+
+    # 閉曲線積分 \oint f dx
+    s = re.sub(
+        r'\\oint\s*([A-Za-z0-9_+\-*/^()]+)\s*d([A-Za-z_]\w*)',
+        r'Integral(\1,(\2,0,2*pi))',
+        s
+    )
+
+    # 多重積分 \iint f dx dy, \iiint f dx dy dz
+    def repl_iint(m):
+        expr = m.group(1)
+        vars = re.findall(r'd([A-Za-z_]\w*)', m.group(2))
+        inner = expr
+        for v in vars:
+            inner = f"Integral({inner},{v})"
+        return inner
+
+    s = re.sub(
+        r'\\iint\s*([A-Za-z0-9_+\-*/^()]+)\s*((?:d[A-Za-z_]\w*\s*){2,})',
+        repl_iint,
+        s
+    )
+    s = re.sub(
+        r'\\iiint\s*([A-Za-z0-9_+\-*/^()]+)\s*((?:d[A-Za-z_]\w*\s*){3,})',
+        repl_iint,
+        s
+    )
+
     return s.replace(" ", "")
 
 def convert_other_re(expr: str, params) -> str:
@@ -275,5 +348,41 @@ def convert_other_re(expr: str, params) -> str:
     s = re.sub(r'\bexponential\(([^()]+)\)', r'exp(\1)', s)
     # 既に exp(...) のものはそのまま（正規化だけ）
     s = re.sub(r'\bexp\(([^()]+)\)', r'exp(\1)', s)
+
+    # --- LaTeX forms ---
+
+    # Gradient: \nabla f, \grad f
+    s = re.sub(
+        r'(?:\\nabla\s*\(?\s*([A-Za-z_]\w*)\)?|\\grad\s*\(?\s*([A-Za-z_]\w*)\)?|\\gradient\s*\(?\s*([A-Za-z_]\w*)\)?)',
+        lambda m: f"Gradient({m.group(1) or m.group(2) or m.group(3)})",
+        s
+    )
+
+    # Divergence: \nabla \cdot f, \div f
+    s = re.sub(
+        r'(?:\\nabla\s*\\cdot\s*([A-Za-z_]\w*)|\\div\s*\(?\s*([A-Za-z_]\w*)\)?|\\divergence\s*\(?\s*([A-Za-z_]\w*)\)?)',
+        lambda m: f"Divergence({m.group(1) or m.group(2) or m.group(3)})",
+        s
+    )
+
+    # Curl: \nabla \times f, \curl f
+    s = re.sub(
+        r'(?:\\nabla\s*\\times\s*([A-Za-z_]\w*)|\\curl\s*\(?\s*([A-Za-z_]\w*)\)?|\\rot\s*\(?\s*([A-Za-z_]\w*)\)?)',
+        lambda m: f"Curl({m.group(1) or m.group(2) or m.group(3)})",
+        s
+    )
+
+    # Infinity: \infty
+    s = re.sub(r'\\infty', 'inf', s)
+
+    # Dot / Cross
+    s = re.sub(r'([A-Za-z_]\w*)\s*\\cdot\s*([A-Za-z_]\w*)', r'smart_dot(\1,\2)', s)
+    s = re.sub(r'([A-Za-z_]\w*)\s*\\times\s*([A-Za-z_]\w*)', r'\1.cross(\2)', s)
+
+    # Vector: \vec{a}
+    s = re.sub(r'\\vec\s*\{\s*([A-Za-z_]\w*)\s*\}', r'Matrix(\1)', s)
+
+    # Unit vector: \hat{a}
+    s = re.sub(r'\\hat\s*\{\s*([A-Za-z_]\w*)\s*\}', r'\1_hat', s)
 
     return s.replace(" ", "")
